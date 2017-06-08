@@ -1,0 +1,3 @@
+com/buildit/crawler/AppTest.class
+com/buildit/crawler/service/CrawlerRejectedExecutionHandlerTest.class
+com/buildit/crawler/service/OutputWriterTest.class
