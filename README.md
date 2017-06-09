@@ -13,6 +13,8 @@ To build the application: mvn clean install
 ```
 To run the application: mvn exec:java -Dexec.args=[Valid URL enclosed in double quotes]
   e.g. mvn exec:java -Dexec.args="http://wiprodigital.com"
+  
+  It will create a file output.txt in project folder that will have the name of all subdomains
 ```
   
 ```
