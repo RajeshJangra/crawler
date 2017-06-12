@@ -4,9 +4,9 @@ import com.buildit.crawler.exception.CrawlerException;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -26,7 +26,6 @@ import static org.mockito.Mockito.*;
 @RunWith(MockitoJUnitRunner.class)
 public class CrawlerTest {
 
-    @InjectMocks
     Crawler crawler;
 
     @Mock
@@ -34,8 +33,14 @@ public class CrawlerTest {
     @Mock
     private Set<String> crawledUrls;
     @Mock
+    private Set<String> staticResources;
+    @Mock
     private Util util;
 
+    @Before
+    public void setUp() throws Exception {
+        crawler = new Crawler(queue, crawledUrls, staticResources, null, util);
+    }
 
     @Test
     public void crawlQueueIsEmptyNothingHappens() {
@@ -112,7 +117,6 @@ public class CrawlerTest {
         when(connection.getContentType()).thenReturn("multipart/form-data");
         crawler.crawl();
         verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
-        verify(crawledUrls, times(1)).add(url);
         verify(util, times(1)).getConnection(url);
         verify(util, times(0)).getDocumentFromUrl(url, connection);
     }
@@ -124,6 +128,7 @@ public class CrawlerTest {
         final String childUrl = "http://www.google.com/";
         final URLConnection connection = mock(URLConnection.class);
         final Document doc = mock(Document.class);
+        final String res = "http://17776-presscdn-0-6.pagely.netdna-cdn.com/wp-content/uploads/2016/09/CDAIT.jpg";
 
         Collection<Element> elementSet = new HashSet<>();
         final Element element = mock(Element.class);
@@ -137,9 +142,11 @@ public class CrawlerTest {
         when(util.getDocumentFromUrl(url, connection)).thenReturn(doc);
         when(doc.select("a[href]")).thenReturn(elements);
         when(element.attr("href")).thenReturn(childUrl);
+        when(doc.select("[src]")).thenReturn(elements);
+        when(element.attr("abs:src")).thenReturn(res);
         crawler.crawl();
         verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
-        verify(crawledUrls, times(1)).add(url);
+        verify(crawledUrls, times(1)).add(childUrl);
         verify(util, times(1)).getConnection(url);
         verify(util, times(1)).getDocumentFromUrl(url, connection);
         verify(queue, times(0)).offer(childUrl);
@@ -165,6 +172,7 @@ public class CrawlerTest {
         when(connection.getContentType()).thenReturn("text/html");
         when(util.getDocumentFromUrl(url, connection)).thenReturn(doc);
         when(doc.select("a[href]")).thenReturn(elements);
+        when(doc.select("[src]")).thenReturn(elements);
         when(element.attr("href")).thenReturn(childUrl);
         crawler.crawl();
         verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
@@ -181,6 +189,7 @@ public class CrawlerTest {
         final String childUrl = "http://www.wiprodigital.com/what-we-do/#";
         final URLConnection connection = mock(URLConnection.class);
         final Document doc = mock(Document.class);
+        final String res = "http://17776-presscdn-0-6.pagely.netdna-cdn.com/wp-content/uploads/2016/09/CDAIT.jpg";
 
         Collection<Element> elementSet = new HashSet<>();
         final Element element = mock(Element.class);
@@ -195,21 +204,24 @@ public class CrawlerTest {
         when(util.getDocumentFromUrl(url, connection)).thenReturn(doc);
         when(doc.select("a[href]")).thenReturn(elements);
         when(element.attr("href")).thenReturn(childUrl);
+        when(doc.select("[src]")).thenReturn(elements);
+        when(element.attr("abs:src")).thenReturn(res);
+
         crawler.crawl();
         verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
-        verify(crawledUrls, times(1)).add(url);
         verify(util, times(1)).getConnection(url);
         verify(util, times(1)).getDocumentFromUrl(url, connection);
         verify(queue, times(0)).offer(childUrl);
     }
 
     @Test
-    public void crawlSuccessfullyAddedAllTheLinksToQueue() throws Exception {
+    public void crawlSuccessfullyAddedAllTheLinksToQueueAndResourceNotCrawled() throws Exception {
         final String url = "http://www.wiprodigital.com/";
         crawler.setRootUrl(url);
         final String childUrl = "http://www.wiprodigital.com/what-we-do/";
         final URLConnection connection = mock(URLConnection.class);
         final Document doc = mock(Document.class);
+        final String res = "http://17776-presscdn-0-6.pagely.netdna-cdn.com/wp-content/uploads/2016/09/CDAIT.jpg";
 
         Collection<Element> elementSet = new HashSet<>();
         final Element element = mock(Element.class);
@@ -219,11 +231,47 @@ public class CrawlerTest {
         when(queue.poll(60, TimeUnit.SECONDS)).thenReturn(url);
         when(crawledUrls.contains(url)).thenReturn(false);
         when(crawledUrls.contains(childUrl)).thenReturn(false);
+        when(staticResources.contains(res)).thenReturn(true);
         when(util.getConnection(url)).thenReturn(connection);
         when(connection.getContentType()).thenReturn("text/html");
         when(util.getDocumentFromUrl(url, connection)).thenReturn(doc);
         when(doc.select("a[href]")).thenReturn(elements);
         when(element.attr("href")).thenReturn(childUrl);
+        when(doc.select("[src]")).thenReturn(elements);
+        when(element.attr("abs:src")).thenReturn(res);
+        crawler.crawl();
+        verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
+        verify(crawledUrls, times(1)).add(url);
+        verify(util, times(1)).getConnection(url);
+        verify(util, times(1)).getDocumentFromUrl(url, connection);
+        verify(queue, times(1)).offer(childUrl);
+    }
+
+    @Test
+    public void crawlSuccessfullyAddedAllTheLinksToQueueAndResourceAlreadyCrawled() throws Exception {
+        final String url = "http://www.wiprodigital.com/";
+        crawler.setRootUrl(url);
+        final String childUrl = "http://www.wiprodigital.com/what-we-do/";
+        final URLConnection connection = mock(URLConnection.class);
+        final Document doc = mock(Document.class);
+        final String res = "http://17776-presscdn-0-6.pagely.netdna-cdn.com/wp-content/uploads/2016/09/CDAIT.jpg";
+
+        Collection<Element> elementSet = new HashSet<>();
+        final Element element = mock(Element.class);
+        elementSet.add(element);
+        Elements elements = new Elements(elementSet);
+
+        when(queue.poll(60, TimeUnit.SECONDS)).thenReturn(url);
+        when(crawledUrls.contains(url)).thenReturn(false);
+        when(crawledUrls.contains(childUrl)).thenReturn(false);
+        when(staticResources.contains(res)).thenReturn(true);
+        when(util.getConnection(url)).thenReturn(connection);
+        when(connection.getContentType()).thenReturn("text/html");
+        when(util.getDocumentFromUrl(url, connection)).thenReturn(doc);
+        when(doc.select("a[href]")).thenReturn(elements);
+        when(element.attr("href")).thenReturn(childUrl);
+        when(doc.select("[src]")).thenReturn(elements);
+        when(element.attr("abs:src")).thenReturn(res);
         crawler.crawl();
         verify(queue, times(1)).poll(60, TimeUnit.SECONDS);
         verify(crawledUrls, times(1)).add(url);

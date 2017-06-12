@@ -6,9 +6,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.mockito.Mockito.anySet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -20,7 +27,16 @@ public class ProcessControllerTest {
     ProcessController processController;
 
     @Mock
-    OutputWriter writer;
+    private ThreadPoolExecutor executorService;
+
+    @Mock
+    OutputWriter urlWriter;
+
+    @Mock
+    OutputWriter resWriter;
+
+    @Mock
+    private BlockingQueue<String> queue;
 
     @Test
     public void processInvalidUrl() throws Exception {
@@ -31,8 +47,16 @@ public class ProcessControllerTest {
     @Test
     public void processValidUrl() throws Exception {
         final String url = "http://www.wiprodigital.com/";
-        when(writer.write(anySet())).thenReturn("output.txt");
-        assertEquals("output.txt", processController.process(url));
+        Future<String> future = mock(Future.class);
+        when(executorService.submit(any(OutputWriter.class))).thenReturn(future);
+        when(future.get(5, TimeUnit.MINUTES)).thenReturn("urlOutput.txt").thenReturn("resOutput.txt");
+        when(queue.isEmpty()).thenReturn(true);
+        final List<String> outputFiles = processController.process(url);
+        final List<String> expected = getOutputFiles();
+        assertEquals(expected.size(), outputFiles.size());
+        for (String str : expected) {
+            assertTrue(outputFiles.contains(str));
+        }
     }
 
     @Test
@@ -41,6 +65,13 @@ public class ProcessControllerTest {
 
     @Test
     public void validateUrl() throws Exception {
+    }
+
+    private List<String> getOutputFiles() {
+        List<String> outputFiles = new ArrayList<>();
+        outputFiles.add("urlOutput.txt");
+        outputFiles.add("resOutput.txt");
+        return outputFiles;
     }
 
 }

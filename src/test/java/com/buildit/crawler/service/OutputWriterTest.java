@@ -1,9 +1,9 @@
 package com.buildit.crawler.service;
 
 import com.buildit.crawler.exception.CrawlerException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.io.BufferedWriter;
@@ -21,27 +21,32 @@ import static org.mockito.Mockito.*;
 @RunWith(MockitoJUnitRunner.class)
 public class OutputWriterTest {
 
-    @Spy
     OutputWriter outputWriter;
+
+    @Before
+    public void setUp() throws Exception {
+        outputWriter = spy(new OutputWriter("output.txt", getCrawledUrls()));
+    }
 
     @Test
     public void writeNullCrawledUrls() throws Exception {
         final Set<String> crawledUrls = null;
-        assertNull(outputWriter.write(crawledUrls));
+        outputWriter = spy(new OutputWriter("output.txt", crawledUrls));
+        assertNull(outputWriter.write());
     }
 
     @Test
     public void writeEmptyCrawledUrls() throws Exception {
         final Set<String> crawledUrls = new HashSet<>();
-        assertNull(outputWriter.write(crawledUrls));
+        outputWriter = spy(new OutputWriter("output.txt", crawledUrls));
+        assertNull(outputWriter.write());
     }
 
     @Test
     public void writeCrawledUrlsSuccessfully() throws Exception {
         final BufferedWriter bufferedWriter = mock(BufferedWriter.class);
         doReturn(bufferedWriter).when(outputWriter).getWriter();
-        final Set<String> crawledUrls = getCrawledUrls();
-        assertEquals("output.txt", outputWriter.write(crawledUrls));
+        assertEquals("output.txt", outputWriter.write());
         verify(bufferedWriter, times(2)).write(anyString());
     }
 
@@ -50,8 +55,7 @@ public class OutputWriterTest {
         final BufferedWriter bufferedWriter = mock(BufferedWriter.class);
         doReturn(bufferedWriter).when(outputWriter).getWriter();
         doThrow(new IOException()).when(bufferedWriter).write(anyString());
-        final Set<String> crawledUrls = getCrawledUrls();
-        outputWriter.write(crawledUrls);
+        outputWriter.write();
     }
 
     @Test(expected = CrawlerException.class)
@@ -59,8 +63,7 @@ public class OutputWriterTest {
         final BufferedWriter bufferedWriter = mock(BufferedWriter.class);
         doReturn(bufferedWriter).when(outputWriter).getWriter();
         doThrow(new IOException()).when(bufferedWriter).flush();
-        final Set<String> crawledUrls = getCrawledUrls();
-        outputWriter.write(crawledUrls);
+        outputWriter.write();
     }
 
     @Test(expected = CrawlerException.class)
@@ -68,8 +71,7 @@ public class OutputWriterTest {
         final BufferedWriter bufferedWriter = mock(BufferedWriter.class);
         doReturn(bufferedWriter).when(outputWriter).getWriter();
         doThrow(new IOException()).when(bufferedWriter).close();
-        final Set<String> crawledUrls = getCrawledUrls();
-        outputWriter.write(crawledUrls);
+        outputWriter.write();
     }
 
     private Set<String> getCrawledUrls() {

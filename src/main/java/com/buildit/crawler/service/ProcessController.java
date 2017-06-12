@@ -5,12 +5,11 @@ import org.slf4j.LoggerFactory;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.*;
 import java.util.stream.IntStream;
 
 /**
@@ -22,20 +21,22 @@ public class ProcessController {
     private BlockingQueue<String> queue = new ArrayBlockingQueue<>(5000);
     private ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(6);
     private Set<String> crawledUrls = new HashSet<>();
+    Set<String> staticResources = new HashSet<>();
     private Util util = new Util();
-    private OutputWriter writer = new OutputWriter();
+    private OutputWriter urlWriter = new OutputWriter("urlOutput.txt", crawledUrls);
+    private OutputWriter resWriter = new OutputWriter("resOutput.txt", staticResources);
 
-    public String process(String baseUrl) {
-        String outputFile = null;
+    public List<String> process(String baseUrl) throws Exception {
+        List<String> outputFileList = null;
         if (validateUrl(baseUrl)) {
-            outputFile = createThreads(baseUrl);
+            outputFileList = createThreads(baseUrl);
         } else {
             LOGGER.error("Input URL: " + baseUrl + " is not valid. Application will exit now");
         }
-        return outputFile;
+        return outputFileList;
     }
 
-    private String createThreads(final String baseUrl) {
+    private List<String> createThreads(final String baseUrl) throws Exception {
         queue.offer(baseUrl);
         executorService.setRejectedExecutionHandler(new CrawlerRejectedExecutionHandler());
 
@@ -43,15 +44,49 @@ public class ProcessController {
 
         //Waiting for crawling to finish
         waitForCrawling(queue);
-        executorService.shutdown();
 
-        final String outputFile = writer.write(crawledUrls);
-        LOGGER.info("\nCrawling successfully completed. Please check " + outputFile + "for results.");
-        return outputFile;
+        List<String> outputFileList = writeOutputToFiles();
+
+        executorService.shutdown();
+        return outputFileList;
+    }
+
+    private List<String> writeOutputToFiles() throws Exception {
+        Future<String> urFut = executorService.submit(urlWriter);
+        Future<String> resFut = executorService.submit(resWriter);
+
+        String urlOutputFile;
+        try {
+            urlOutputFile = urFut.get(5, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            LOGGER.error("Timeout while writing to url output file");
+            throw e;
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Error while writing to url output file");
+            throw e;
+        }
+
+        String resOutputFile;
+        try {
+            resOutputFile = resFut.get(5, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            LOGGER.error("Timeout while writing to resource output file");
+            throw e;
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("Error while writing to resource output file");
+            throw e;
+        }
+
+        LOGGER.info("\nCrawling successfully completed. Please check " + urlOutputFile + " and " + resOutputFile + " for results.");
+
+        List<String> outputFileList = new ArrayList<>();
+        outputFileList.add(urlOutputFile);
+        outputFileList.add(resOutputFile);
+        return outputFileList;
     }
 
     private void spawnThreads(final String baseUrl, final ThreadPoolExecutor executorService) {
-        executorService.submit(new Crawler(queue, crawledUrls, baseUrl, util));
+        executorService.submit(new Crawler(queue, crawledUrls, staticResources, baseUrl, util));
         //Lets the queue build initially
         try {
             Thread.sleep(5000);
@@ -59,7 +94,7 @@ public class ProcessController {
             LOGGER.error("Error while waiting for the queue to build");
         }
         //Start the rest of threads
-        IntStream.range(0, 5).forEach(counter -> executorService.submit(new Crawler(queue, crawledUrls, baseUrl, util)));
+        IntStream.range(0, 5).forEach(counter -> executorService.submit(new Crawler(queue, crawledUrls, staticResources, baseUrl, util)));
     }
 
     protected void waitForCrawling(final BlockingQueue<String> queue) {

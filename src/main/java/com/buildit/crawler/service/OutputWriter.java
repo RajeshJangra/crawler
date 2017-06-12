@@ -12,31 +12,43 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
-public class OutputWriter {
+public class OutputWriter implements Callable<String> {
     private static final Logger LOGGER = LoggerFactory.getLogger(OutputWriter.class);
 
-    private String fileName = "output.txt";
+    private String fileName;
+    private Set<String> stringSet;
 
-    public String write(Set<String> crawledUrls) {
-        if (validateInput(crawledUrls)) return null;
+    public OutputWriter(final String fileName, Set<String> stringSet) {
+        this.fileName = fileName;
+        this.stringSet = stringSet;
+    }
+
+    @Override
+    public String call() throws Exception {
+        return write();
+    }
+
+    protected String write() {
+        if (validateInput()) return null;
         final BufferedWriter writer = getWriter();
-        writeToFile(crawledUrls, writer);
+        writeToFile(writer);
         closeWriter(writer);
         return fileName;
     }
 
-    private boolean validateInput(final Set<String> crawledUrls) {
-        if (crawledUrls == null || crawledUrls.isEmpty()) {
-            final String msg = "Crawled Urls are null";
+    private boolean validateInput() {
+        if (stringSet == null || stringSet.isEmpty()) {
+            final String msg = "Input is null or empty";
             LOGGER.error(msg);
             return true;
         }
         return false;
     }
 
-    private void writeToFile(final Set<String> crawledUrls, final BufferedWriter bw) {
-        crawledUrls.stream().forEach(url -> {
+    private void writeToFile(final BufferedWriter bw) {
+        stringSet.stream().forEach(url -> {
             try {
                 bw.write(url + "\n");
             } catch (IOException e) {

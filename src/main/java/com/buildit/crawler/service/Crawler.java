@@ -24,12 +24,14 @@ public class Crawler implements Runnable {
 
     private BlockingQueue<String> queue;
     private Set<String> crawledUrls = new HashSet<>();
+    private Set<String> staticResources = new HashSet<>();
     private String rootUrl = null;
     private Util util;
 
-    public Crawler(final BlockingQueue<String> queue, final Set<String> crawledUrls, String rootUrl, Util util) {
+    public Crawler(final BlockingQueue<String> queue, final Set<String> crawledUrls, Set<String> staticResources, String rootUrl, Util util) {
         this.queue = queue;
         this.crawledUrls = crawledUrls;
+        this.staticResources = staticResources;
         this.rootUrl = rootUrl;
         this.util = util;
     }
@@ -54,16 +56,31 @@ public class Crawler implements Runnable {
             }
 
             Document doc = util.getDocumentFromUrl(url, connection);
-            addLinksToQueue(doc);
+            crawlUrlforLinks(doc);
+            crawlUrlforStaticResources(doc);
         }
     }
 
-    protected void addLinksToQueue(final Document doc) {
+    protected void crawlUrlforLinks(final Document doc) {
         final Elements elements = doc.select("a[href]");
         for (Element element : elements) {
             final String childUrl = element.attr("href");
-            if (childUrl.startsWith(rootUrl) && !crawledUrls.contains(childUrl) && !childUrl.contains("#")) {
-                queue.offer(childUrl);
+            if (!crawledUrls.contains(childUrl) && !childUrl.contains("#")) {
+                if(childUrl.startsWith(rootUrl)) {
+                    queue.offer(childUrl);
+                } else {
+                    crawledUrls.add(childUrl);
+                }
+            }
+        }
+    }
+
+    protected void crawlUrlforStaticResources(final Document doc) {
+        final Elements elements = doc.select("[src]");
+        for (Element element : elements) {
+            final String resource = element.attr("abs:src");
+            if (!staticResources.contains(resource)) {
+                staticResources.add(resource);
             }
         }
     }
