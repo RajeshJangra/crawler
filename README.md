@@ -31,3 +31,11 @@ Important Files:
 This application has 32 unit test cases. Most of the classes are 100% covered with both negative and positive test cases.
 To run the test cases: mvn test
 ```  
+```
+To select static resources in the crawler I have to add following
+  doc.select("[src]");
+  
+To select external urls I have to change the consition in code where I do not select external. Following is the condition that needs to be removed.
+  childUrl.startsWith(rootUrl)
+
+```
