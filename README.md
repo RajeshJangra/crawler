@@ -14,7 +14,8 @@ To build the application: mvn clean install
 To run the application: mvn exec:java -Dexec.args=[Valid URL enclosed in double quotes]
   e.g. mvn exec:java -Dexec.args="http://wiprodigital.com"
   
-  It will create a file output.txt in project folder that will have the name of all subdomains
+  It will create a file urlOutput.txt in project folder that will have the name of all urls
+  It will also create another file resOutput.txt for all the static resources
 ```
   
 ```
@@ -32,10 +33,27 @@ This application has 32 unit test cases. Most of the classes are 100% covered wi
 To run the test cases: mvn test
 ```  
 ```
-To select static resources in the crawler I have to add following
-  doc.select("[src]");
+To select static resources in the crawler I added following new method
+
+      protected void crawlUrlforStaticResources(final Document doc) {
+          final Elements elements = doc.select("[src]");
+          for (Element element : elements) {
+              final String resource = element.attr("abs:src");
+              if (!staticResources.contains(resource)) {
+                  staticResources.add(resource);
+              }
+          }
+      }
   
-To select external urls I have to change the consition in code where I do not select external. Following is the condition that needs to be removed.
-  childUrl.startsWith(rootUrl)
+To select external urls I have to change the consition in code which does not select the external urls.
+Now I have changed the condition to include the internal urls for further crawling and external urls are added but not crawled.
+      
+      if(childUrl.startsWith(rootUrl)) {
+         queue.offer(childUrl);
+      } else {
+         crawledUrls.add(childUrl);
+      }
+      
+I have also changed the respective test cases and added few new test cases
 
 ```
