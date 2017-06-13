@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +46,7 @@ public class ProcessController {
         waitForCrawling(queue);
 
         List<String> outputFileList = writeOutputToFiles();
+        LOGGER.info("\nCrawling successfully completed. Please check output files for results.");
 
         executorService.shutdown();
         return outputFileList;
@@ -54,35 +55,21 @@ public class ProcessController {
     private List<String> writeOutputToFiles() throws Exception {
         Future<String> urFut = executorService.submit(urlWriter);
         Future<String> resFut = executorService.submit(resWriter);
+        return Arrays.asList(getWriterOutput(urFut), getWriterOutput(resFut));
+    }
 
-        String urlOutputFile;
-        try {
-            urlOutputFile = urFut.get(5, TimeUnit.MINUTES);
-        } catch (TimeoutException e) {
-            LOGGER.error("Timeout while writing to url output file");
-            throw e;
-        } catch (InterruptedException | ExecutionException e) {
-            LOGGER.error("Error while writing to url output file");
-            throw e;
-        }
-
+    private String getWriterOutput(final Future<String> resFut) throws TimeoutException, InterruptedException, ExecutionException {
         String resOutputFile;
         try {
             resOutputFile = resFut.get(5, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
-            LOGGER.error("Timeout while writing to resource output file");
+            LOGGER.error("Timeout while writing to output file");
             throw e;
         } catch (InterruptedException | ExecutionException e) {
-            LOGGER.error("Error while writing to resource output file");
+            LOGGER.error("Error while writing to output file");
             throw e;
         }
-
-        LOGGER.info("\nCrawling successfully completed. Please check " + urlOutputFile + " and " + resOutputFile + " for results.");
-
-        List<String> outputFileList = new ArrayList<>();
-        outputFileList.add(urlOutputFile);
-        outputFileList.add(resOutputFile);
-        return outputFileList;
+        return resOutputFile;
     }
 
     private void spawnThreads(final String baseUrl, final ThreadPoolExecutor executorService) {
@@ -101,7 +88,7 @@ public class ProcessController {
         while (!queue.isEmpty()) {
             try {
                 Thread.sleep(2000);
-                System.out.println("Processing: " + queue.size() + " items in queue");
+                LOGGER.info("Processing: " + queue.size() + " items in queue");
             } catch (InterruptedException e) {
                 LOGGER.error("Error while waiting for the queue to be consumed");
             }
